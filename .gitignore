@@ -1,0 +1,17 @@
+# Runtime logs and temporary files
+*.log
+*.tmp
+workday-floating-clock-error.log
+
+# Local/editor files
+.vs/
+.vscode/
+Thumbs.db
+Desktop.ini
+
+# Historical binaries kept locally; the latest EXE is distributed via Releases
+工作时间悬浮闹钟.exe
+工作时间悬浮闹钟-优化版.exe
+工作时间悬浮闹钟-曲线修复版.exe
+工作时间悬浮闹钟-综合优化版.exe
+
