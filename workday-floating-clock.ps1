@@ -17,10 +17,18 @@ public static class WorkdayClockNative {
 }
 "@
 $ErrorActionPreference = "Stop"
-$errorLog = Join-Path ([Environment]::GetFolderPath("Desktop")) "workday-floating-clock-error.log"
+$errorLog = if ($env:WORKDAY_CLOCK_SELFTEST -eq "1") {
+    Join-Path ([IO.Path]::GetTempPath()) "workday-floating-clock-error.log"
+} else {
+    Join-Path ([Environment]::GetFolderPath("Desktop")) "workday-floating-clock-error.log"
+}
 trap {
     $details = $_ | Out-String
     [IO.File]::WriteAllText($errorLog, $details)
+    if ($env:WORKDAY_CLOCK_SELFTEST -eq "1") {
+        Write-Error $details
+        exit 1
+    }
     try {
         [System.Windows.MessageBox]::Show(
             "Floating clock startup failed. Error saved to:`n$errorLog`n`n$details",
@@ -58,7 +66,8 @@ trap {
         <ColumnDefinition x:Name="StockColumn" Width="320"/>
         <ColumnDefinition x:Name="LyricsColumn" Width="*"/>
       </Grid.ColumnDefinitions>
-      <Grid x:Name="TimerPanel" Grid.Column="0" Margin="0,0,14,0" Background="#D9142845">
+      <Grid x:Name="TimerPanel" Grid.Column="0" Margin="0,0,14,0" Background="#D9142845" Cursor="Hand"
+            ToolTip="拖动可调整模块顺序；窗口边缘空白处可移动窗口">
         <Grid.RowDefinitions>
           <RowDefinition Height="*"/>
           <RowDefinition Height="Auto"/>
@@ -82,7 +91,8 @@ trap {
                      TextOptions.TextFormattingMode="Ideal"/>
         </StackPanel>
       </Grid>
-      <Grid x:Name="StockPanel" Grid.Column="1" Margin="0,0,14,0" Background="#D9123440">
+      <Grid x:Name="StockPanel" Grid.Column="1" Margin="0,0,14,0" Background="#D9123440" Cursor="Hand"
+            ToolTip="拖动可调整模块顺序">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
@@ -109,7 +119,8 @@ trap {
                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
         </Border>
       </Grid>
-      <Grid x:Name="LyricsPanelRoot" Grid.Column="2" Background="#D9122038" Margin="0">
+      <Grid x:Name="LyricsPanelRoot" Grid.Column="2" Background="#D9122038" Margin="0" Cursor="Hand"
+            ToolTip="拖动可调整模块顺序">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
@@ -117,7 +128,7 @@ trap {
           <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <StackPanel x:Name="LyricsSearchPanel" Grid.Row="0" Orientation="Horizontal" Margin="14,10,12,0">
-          <TextBlock Text="MUSIC  ·  歌词" Foreground="#C2B6FF" FontSize="11"
+          <TextBlock x:Name="MusicTitleText" Text="MUSIC  ·  歌词" Foreground="#C2B6FF" FontSize="11"
                      FontWeight="SemiBold" VerticalAlignment="Center"/>
           <TextBox x:Name="SearchBox" Width="200" Height="27" Margin="14,0,6,0"
                    Padding="8,4" Background="#243B5C" Foreground="#F5F8FF"
@@ -153,7 +164,8 @@ trap {
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
-        <Border Grid.Column="0" Background="#B9162D4B" CornerRadius="10" Margin="0,0,4,0" Padding="6">
+        <Border x:Name="SummaryTimerCard" Grid.Column="0" Background="#B9162D4B" CornerRadius="10"
+                Margin="0,0,4,0" Padding="6" Cursor="Hand" ToolTip="左右拖动调整模块顺序">
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="现在" Foreground="#7890AD" FontSize="9" HorizontalAlignment="Center"/>
             <TextBlock x:Name="SummaryClockText" Text="--:--" Foreground="#F7FAFF" FontSize="19" FontWeight="SemiBold"
@@ -162,7 +174,8 @@ trap {
                        HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
           </StackPanel>
         </Border>
-        <Border Grid.Column="1" Background="#B9143440" CornerRadius="10" Margin="2,0,2,0" Padding="6">
+        <Border x:Name="SummaryStockCard" Grid.Column="1" Background="#B9143440" CornerRadius="10"
+                Margin="2,0,2,0" Padding="6" Cursor="Hand" ToolTip="左右拖动调整模块顺序">
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="创业板" Foreground="#7890AD" FontSize="9" HorizontalAlignment="Center"/>
             <TextBlock x:Name="SummaryStockPriceText" Text="--.--" Foreground="#F7FAFF" FontSize="18" FontWeight="SemiBold"
@@ -171,7 +184,8 @@ trap {
                        HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
           </StackPanel>
         </Border>
-        <Border Grid.Column="2" Background="#B9122038" CornerRadius="10" Margin="4,0,0,0" Padding="6">
+        <Border x:Name="SummaryLyricsCard" Grid.Column="2" Background="#B9122038" CornerRadius="10"
+                Margin="4,0,0,0" Padding="6" Cursor="Hand" ToolTip="左右拖动调整模块顺序">
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="正在播放" Foreground="#897EB1" FontSize="9" HorizontalAlignment="Center"/>
             <TextBlock x:Name="SummaryTrackText" Text="未选择歌曲" Foreground="#EEE9FF" FontSize="12" FontWeight="SemiBold"
@@ -184,6 +198,13 @@ trap {
             </TextBlock>
           </StackPanel>
         </Border>
+        <StackPanel x:Name="ModuleDots" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal"
+                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,2"
+                    Visibility="Collapsed" IsHitTestVisible="False">
+          <Ellipse x:Name="ModuleDot0" Width="4" Height="4" Margin="2,0" Fill="#D9FFFFFF"/>
+          <Ellipse x:Name="ModuleDot1" Width="4" Height="4" Margin="2,0" Fill="#4DFFFFFF"/>
+          <Ellipse x:Name="ModuleDot2" Width="4" Height="4" Margin="2,0" Fill="#4DFFFFFF"/>
+        </StackPanel>
       </Grid>
       <StackPanel x:Name="ChromeButtons" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal"
                   VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,4,0"
@@ -260,11 +281,19 @@ $countdownPanel = $window.FindName("CountdownPanel")
 $remainingLabel = $window.FindName("RemainingLabel")
 $lyricsPanelRoot = $window.FindName("LyricsPanelRoot")
 $marketTitleText = $window.FindName("MarketTitleText")
+$musicTitleText = $window.FindName("MusicTitleText")
 $stockQuotePanel = $window.FindName("StockQuotePanel")
 $stockDetailPanel = $window.FindName("StockDetailPanel")
 $lyricsSearchPanel = $window.FindName("LyricsSearchPanel")
 $recommendDock = $window.FindName("RecommendDock")
 $compactSummaryPanel = $window.FindName("CompactSummaryPanel")
+$summaryTimerCard = $window.FindName("SummaryTimerCard")
+$summaryStockCard = $window.FindName("SummaryStockCard")
+$summaryLyricsCard = $window.FindName("SummaryLyricsCard")
+$moduleDots = $window.FindName("ModuleDots")
+$moduleDot0 = $window.FindName("ModuleDot0")
+$moduleDot1 = $window.FindName("ModuleDot1")
+$moduleDot2 = $window.FindName("ModuleDot2")
 $summaryClockText = $window.FindName("SummaryClockText")
 $summaryCountdownText = $window.FindName("SummaryCountdownText")
 $summaryStockPriceText = $window.FindName("SummaryStockPriceText")
@@ -310,6 +339,242 @@ $script:isMinimalLayout = $false
 $script:lastExpandedWidth = 1040
 $script:lastExpandedHeight = 310
 $script:suppressExpandedTracking = $false
+$script:moduleOrder = @("timer", "stock", "lyrics")
+$script:minimalModule = "timer"
+$script:moduleDragSource = $null
+$script:moduleDragStart = $null
+$script:moduleDragHost = $null
+$script:moduleDragControl = $null
+$script:moduleDragMoved = $false
+$script:moduleLayoutPath = if ($env:WORKDAY_CLOCK_SELFTEST -eq "1") {
+    Join-Path ([IO.Path]::GetTempPath()) "workday-floating-clock-layout-selftest.json"
+} else {
+    Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "WorkdayFloatingClock\layout.json"
+}
+
+$mainGrid = [Windows.Controls.Grid]$timerPanel.Parent
+$script:fullModuleControls = @{
+    timer = $timerPanel
+    stock = $stockPanel
+    lyrics = $lyricsPanelRoot
+}
+$script:summaryModuleControls = @{
+    timer = $summaryTimerCard
+    stock = $summaryStockCard
+    lyrics = $summaryLyricsCard
+}
+
+function Save-ModuleLayout {
+    try {
+        $directory = [IO.Path]::GetDirectoryName($script:moduleLayoutPath)
+        if (-not [IO.Directory]::Exists($directory)) {
+            [void][IO.Directory]::CreateDirectory($directory)
+        }
+        $state = [PSCustomObject]@{
+            moduleOrder = @($script:moduleOrder)
+            minimalModule = $script:minimalModule
+        }
+        $json = $state | ConvertTo-Json -Compress
+        [IO.File]::WriteAllText($script:moduleLayoutPath, $json, (New-Object Text.UTF8Encoding($false)))
+    } catch {
+        $script:lastLayoutSaveError = $_.Exception.Message
+    }
+}
+
+function Load-ModuleLayout {
+    try {
+        if (-not [IO.File]::Exists($script:moduleLayoutPath)) { return }
+        $state = [IO.File]::ReadAllText($script:moduleLayoutPath, [Text.Encoding]::UTF8) | ConvertFrom-Json
+        $candidate = @($state.moduleOrder | ForEach-Object { [string]$_ })
+        $allowed = @("timer", "stock", "lyrics")
+        $invalid = @($candidate | Where-Object { $allowed -notcontains $_ })
+        $unique = @($candidate | Select-Object -Unique)
+        if ($candidate.Count -eq 3 -and $unique.Count -eq 3 -and $invalid.Count -eq 0) {
+            $script:moduleOrder = $candidate
+        }
+        $savedMinimal = [string]$state.minimalModule
+        if ($allowed -contains $savedMinimal) {
+            $script:minimalModule = $savedMinimal
+        }
+    } catch {
+        $script:lastLayoutLoadError = $_.Exception.Message
+    }
+}
+
+function Get-ModulePosition([string]$moduleId) {
+    for ($i = 0; $i -lt $script:moduleOrder.Count; $i++) {
+        if ($script:moduleOrder[$i] -eq $moduleId) { return $i }
+    }
+    return 0
+}
+
+function Set-ModuleOrderVisuals {
+    for ($i = 0; $i -lt $script:moduleOrder.Count; $i++) {
+        $moduleId = $script:moduleOrder[$i]
+        [Windows.Controls.Grid]::SetColumn($script:fullModuleControls[$moduleId], $i)
+        [Windows.Controls.Grid]::SetColumn($script:summaryModuleControls[$moduleId], $i)
+    }
+}
+
+function Set-FullModuleLayout([double]$timerWidth, [double]$stockWidth, [double]$gap) {
+    Set-ModuleOrderVisuals
+    $star = [Windows.GridLength]::new(1, [Windows.GridUnitType]::Star)
+    $widths = @{
+        timer = [Windows.GridLength]::new($timerWidth)
+        stock = [Windows.GridLength]::new($stockWidth)
+        lyrics = $star
+    }
+    for ($i = 0; $i -lt 3; $i++) {
+        $moduleId = $script:moduleOrder[$i]
+        $mainGrid.ColumnDefinitions[$i].Width = $widths[$moduleId]
+        $script:fullModuleControls[$moduleId].Margin = if ($i -lt 2) {
+            [Windows.Thickness]::new(0, 0, $gap, 0)
+        } else {
+            [Windows.Thickness]::new(0)
+        }
+    }
+}
+
+function Update-ModuleDots {
+    $selected = Get-ModulePosition $script:minimalModule
+    $dots = @($moduleDot0, $moduleDot1, $moduleDot2)
+    for ($i = 0; $i -lt $dots.Count; $i++) {
+        $alpha = if ($i -eq $selected) { 217 } else { 77 }
+        $dots[$i].Fill = New-Object Windows.Media.SolidColorBrush ([Windows.Media.Color]::FromArgb($alpha, 255, 255, 255))
+    }
+}
+
+function Show-MinimalSummary {
+    Set-ModuleOrderVisuals
+    foreach ($moduleId in @("timer", "stock", "lyrics")) {
+        $card = $script:summaryModuleControls[$moduleId]
+        $card.Visibility = [Windows.Visibility]::Collapsed
+        $card.Opacity = 1
+    }
+    $selectedCard = $script:summaryModuleControls[$script:minimalModule]
+    $selectedCard.Visibility = [Windows.Visibility]::Visible
+    $selectedCard.Margin = [Windows.Thickness]::new(0)
+    $selectedCard.ToolTip = "左右拖动切换倒计时、创业板和歌词"
+    [Windows.Controls.Grid]::SetColumn($selectedCard, 0)
+    $compactSummaryPanel.ColumnDefinitions[0].Width = [Windows.GridLength]::new(1, [Windows.GridUnitType]::Star)
+    $compactSummaryPanel.ColumnDefinitions[1].Width = [Windows.GridLength]::new(0)
+    $compactSummaryPanel.ColumnDefinitions[2].Width = [Windows.GridLength]::new(0)
+    $moduleDots.Visibility = [Windows.Visibility]::Visible
+    Update-ModuleDots
+}
+
+function Show-CompactSummary {
+    Set-ModuleOrderVisuals
+    $star = [Windows.GridLength]::new(1, [Windows.GridUnitType]::Star)
+    for ($i = 0; $i -lt 3; $i++) {
+        $moduleId = $script:moduleOrder[$i]
+        $card = $script:summaryModuleControls[$moduleId]
+        $card.Visibility = [Windows.Visibility]::Visible
+        $card.Opacity = 1
+        $card.ToolTip = "左右拖动调整模块顺序"
+        $card.Margin = switch ($i) {
+            0 { [Windows.Thickness]::new(0, 0, 4, 0) }
+            1 { [Windows.Thickness]::new(2, 0, 2, 0) }
+            default { [Windows.Thickness]::new(4, 0, 0, 0) }
+        }
+        $compactSummaryPanel.ColumnDefinitions[$i].Width = $star
+    }
+    $moduleDots.Visibility = [Windows.Visibility]::Collapsed
+}
+
+function Move-ModuleToSlot([string]$moduleId, [int]$targetIndex) {
+    $targetIndex = [math]::Max(0, [math]::Min(2, $targetIndex))
+    $sourceIndex = Get-ModulePosition $moduleId
+    if ($sourceIndex -eq $targetIndex) { return }
+    $items = New-Object System.Collections.ArrayList
+    foreach ($item in $script:moduleOrder) { [void]$items.Add($item) }
+    $items.RemoveAt($sourceIndex)
+    $items.Insert($targetIndex, $moduleId)
+    $script:moduleOrder = @($items.ToArray())
+    Save-ModuleLayout
+}
+
+function Switch-MinimalModule([int]$direction) {
+    $current = Get-ModulePosition $script:minimalModule
+    $next = ($current + $direction) % 3
+    if ($next -lt 0) { $next += 3 }
+    $script:minimalModule = $script:moduleOrder[$next]
+    Save-ModuleLayout
+    Update-CompactLayout
+}
+
+function Test-InteractiveModuleSource($source) {
+    $node = $source
+    while ($null -ne $node -and $node -ne $window) {
+        if ($node -is [Windows.Controls.Primitives.ButtonBase] -or
+            $node -is [Windows.Controls.TextBox] -or
+            $node -is [Windows.Controls.Primitives.ScrollBar]) {
+            return $true
+        }
+        try { $node = [Windows.Media.VisualTreeHelper]::GetParent($node) } catch { break }
+    }
+    return $false
+}
+
+function Register-ModuleDrag($control, [string]$moduleId, $dragHost) {
+    $control.Tag = "Module:$moduleId"
+    $control.Add_PreviewMouseLeftButtonDown({
+        if (Test-InteractiveModuleSource $_.OriginalSource) { return }
+        if ($_.ClickCount -gt 1) {
+            if ($window.Width -le 360) { Restore-ExpandedDisplay } else { Set-MinimalDisplay }
+            $_.Handled = $true
+            return
+        }
+        $script:moduleDragSource = ([string]$this.Tag).Substring(7)
+        $script:moduleDragHost = if ($script:summaryModuleControls.Values -contains $this) { $compactSummaryPanel } else { $mainGrid }
+        $script:moduleDragControl = $this
+        $script:moduleDragStart = $_.GetPosition($script:moduleDragHost)
+        $script:moduleDragMoved = $false
+        [void]$this.CaptureMouse()
+        $_.Handled = $true
+    })
+    $control.Add_PreviewMouseMove({
+        if ($script:moduleDragControl -ne $this -or
+            $_.LeftButton -ne [Windows.Input.MouseButtonState]::Pressed) { return }
+        $point = $_.GetPosition($script:moduleDragHost)
+        $dx = $point.X - $script:moduleDragStart.X
+        $dy = $point.Y - $script:moduleDragStart.Y
+        if ([math]::Abs($dx) -ge 7 -and [math]::Abs($dx) -gt [math]::Abs($dy)) {
+            $script:moduleDragMoved = $true
+            $this.Opacity = 0.72
+        }
+        $_.Handled = $true
+    })
+    $control.Add_PreviewMouseLeftButtonUp({
+        if ($script:moduleDragControl -ne $this) { return }
+        $point = $_.GetPosition($script:moduleDragHost)
+        $dx = $point.X - $script:moduleDragStart.X
+        $dy = $point.Y - $script:moduleDragStart.Y
+        $this.Opacity = 1
+        $this.ReleaseMouseCapture()
+        $sourceId = $script:moduleDragSource
+        $dropHost = $script:moduleDragHost
+        $script:moduleDragSource = $null
+        $script:moduleDragControl = $null
+        if ([math]::Abs($dx) -ge 32 -and [math]::Abs($dx) -gt ([math]::Abs($dy) * 1.15)) {
+            if ($script:isMinimalLayout) {
+                Switch-MinimalModule $(if ($dx -lt 0) { 1 } else { -1 })
+            } else {
+                $slotWidth = [math]::Max(1, $dropHost.ActualWidth / 3)
+                $targetIndex = [math]::Floor($point.X / $slotWidth)
+                Move-ModuleToSlot $sourceId $targetIndex
+                Update-CompactLayout
+            }
+        }
+        $_.Handled = $true
+    })
+}
+
+Load-ModuleLayout
+foreach ($moduleId in @("timer", "stock", "lyrics")) {
+    Register-ModuleDrag $script:fullModuleControls[$moduleId] $moduleId $mainGrid
+    Register-ModuleDrag $script:summaryModuleControls[$moduleId] $moduleId $compactSummaryPanel
+}
 
 # AllowsTransparency 会移除系统非客户区；主动返回八方向命中码，四边和四角都可拖动缩放。
 $window.Add_SourceInitialized({
@@ -533,7 +798,7 @@ $window.Add_StateChanged({
 
 $windowMenu = New-Object Windows.Controls.ContextMenu
 $menuMinimal = New-Object Windows.Controls.MenuItem
-$menuMinimal.Header = "仅显示倒计时"
+$menuMinimal.Header = "切换到极简单卡模式"
 $menuMinimal.Add_Click({ Set-MinimalDisplay })
 $menuRestore = New-Object Windows.Controls.MenuItem
 $menuRestore.Header = "恢复展开模式"
@@ -606,14 +871,13 @@ function Update-CompactLayout {
         $zero = [Windows.GridLength]::new(0)
         $star = [Windows.GridLength]::new(1, [Windows.GridUnitType]::Star)
 
-        # 极小档：唯一目标是最快看清倒计时。
+        # 极小档：单卡显示，横向拖动可在倒计时、创业板和歌词间切换。
         if ($window.Width -le 360) {
             $script:isMinimalLayout = $true
-            $compactSummaryPanel.Visibility = [Windows.Visibility]::Collapsed
-            $timerPanel.Visibility = [Windows.Visibility]::Visible
+            $compactSummaryPanel.Visibility = [Windows.Visibility]::Visible
+            $timerPanel.Visibility = [Windows.Visibility]::Collapsed
             $stockPanel.Visibility = [Windows.Visibility]::Collapsed
             $lyricsPanelRoot.Visibility = [Windows.Visibility]::Collapsed
-            $clockInfoPanel.Visibility = [Windows.Visibility]::Collapsed
             $chromeButtons.Visibility = [Windows.Visibility]::Collapsed
             $chromeButtons.Opacity = 0
             $chromeHotZone.Visibility = [Windows.Visibility]::Collapsed
@@ -621,17 +885,7 @@ function Update-CompactLayout {
             $timerCol.Width = $star
             $stockCol.Width = $zero
             $lyricsCol.Width = $zero
-            $timerPanel.Margin = "0"
-            $timerPanel.Background = [Windows.Media.Brushes]::Transparent
-            [Windows.Controls.Grid]::SetRow($countdownPanel, 0)
-            [Windows.Controls.Grid]::SetRowSpan($countdownPanel, 2)
-            $countdownPanel.Margin = "0"
-            $countdownPanel.HorizontalAlignment = [Windows.HorizontalAlignment]::Center
-            $countdownPanel.VerticalAlignment = [Windows.VerticalAlignment]::Center
-            $remainingLabel.TextAlignment = [Windows.TextAlignment]::Center
-            $countdownText.TextAlignment = [Windows.TextAlignment]::Center
-            $countdownText.FontSize = 30
-            [Windows.Controls.Grid]::SetColumn($lyricsPanelRoot, 2)
+            Show-MinimalSummary
             return
         }
 
@@ -650,9 +904,11 @@ function Update-CompactLayout {
             $chromeHotZone.IsHitTestVisible = $true
         }
         $compactSummaryPanel.Visibility = [Windows.Visibility]::Collapsed
+        $moduleDots.Visibility = [Windows.Visibility]::Collapsed
         $timerPanel.Visibility = [Windows.Visibility]::Visible
         $stockPanel.Visibility = [Windows.Visibility]::Visible
         $lyricsPanelRoot.Visibility = [Windows.Visibility]::Visible
+        Set-ModuleOrderVisuals
         $timerPanel.Background = New-Object Windows.Media.SolidColorBrush ([Windows.Media.Color]::FromArgb(217, 20, 40, 69))
         $workdayTitleText.Visibility = [Windows.Visibility]::Visible
         $clockInfoPanel.Margin = "18,12,14,0"
@@ -694,7 +950,6 @@ function Update-CompactLayout {
         $lyricsViewer.Visibility = [Windows.Visibility]::Visible
         $searchBox.Width = 200
         $searchStatus.Visibility = [Windows.Visibility]::Visible
-        [Windows.Controls.Grid]::SetColumn($lyricsPanelRoot, 2)
         [Windows.Controls.Grid]::SetColumn($chromeButtons, 0)
 
         # 很窄或很矮：不丢模块，切换为三个等宽摘要卡。
@@ -706,16 +961,13 @@ function Update-CompactLayout {
             $timerCol.Width = $star
             $stockCol.Width = $zero
             $lyricsCol.Width = $zero
+            Show-CompactSummary
             return
         }
 
         # 窄屏：三个模块都在，但各自只留下最有价值的信息。
         if ($window.Width -lt 650) {
-            $timerCol.Width = [Windows.GridLength]::new(170)
-            $stockCol.Width = [Windows.GridLength]::new(180)
-            $lyricsCol.Width = $star
-            $timerPanel.Margin = "0,0,6,0"
-            $stockPanel.Margin = "0,0,6,0"
+            Set-FullModuleLayout 170 180 6
             $workdayTitleText.Visibility = [Windows.Visibility]::Collapsed
             $clockInfoPanel.Margin = "10,8,8,0"
             $clockText.FontSize = 28
@@ -749,11 +1001,7 @@ function Update-CompactLayout {
 
         # 紧凑三栏：恢复走势图和歌词，搜索控件继续收起。
         if ($window.Width -lt 900) {
-            $timerCol.Width = [Windows.GridLength]::new(220)
-            $stockCol.Width = [Windows.GridLength]::new(250)
-            $lyricsCol.Width = $star
-            $timerPanel.Margin = "0,0,8,0"
-            $stockPanel.Margin = "0,0,8,0"
+            Set-FullModuleLayout 220 250 8
             $clockText.FontSize = 34
             $clockInfoPanel.Margin = "14,10,10,0"
             $countdownPanel.Margin = "14,8,10,12"
@@ -764,19 +1012,11 @@ function Update-CompactLayout {
             $recommendDock.Visibility = [Windows.Visibility]::Collapsed
         }
         elseif ($window.Width -lt 1150) {
-            $timerCol.Width = [Windows.GridLength]::new(250)
-            $stockCol.Width = [Windows.GridLength]::new(290)
-            $lyricsCol.Width = $star
-            $timerPanel.Margin = "0,0,8,0"
-            $stockPanel.Margin = "0,0,8,0"
+            Set-FullModuleLayout 250 290 8
             $searchBox.Width = 120
             $searchStatus.Visibility = [Windows.Visibility]::Collapsed
         } else {
-            $timerCol.Width = [Windows.GridLength]::new(280)
-            $stockCol.Width = [Windows.GridLength]::new(320)
-            $lyricsCol.Width = $star
-            $timerPanel.Margin = "0,0,12,0"
-            $stockPanel.Margin = "0,0,12,0"
+            Set-FullModuleLayout 280 320 12
             $searchBox.Width = 200
             $searchStatus.Visibility = [Windows.Visibility]::Visible
         }
@@ -1722,4 +1962,28 @@ $window.Add_Closed({
         $script:hwndSource.RemoveHook($script:resizeHook)
     }
 })
+if ($env:WORKDAY_CLOCK_SELFTEST -eq "1") {
+    $window.Width = 320; $window.Height = 112; Update-CompactLayout
+    if (-not $script:isMinimalLayout -or $compactSummaryPanel.Visibility -ne [Windows.Visibility]::Visible) {
+        throw "Minimal layout self-test failed"
+    }
+    $beforeSwitch = $script:minimalModule
+    Switch-MinimalModule 1
+    if ($script:minimalModule -eq $beforeSwitch) { throw "Minimal module switch self-test failed" }
+    $window.Width = 500; $window.Height = 150; Update-CompactLayout
+    if ($script:isMinimalLayout -or $compactSummaryPanel.Visibility -ne [Windows.Visibility]::Visible) {
+        throw "Compact summary self-test failed"
+    }
+    $window.Width = 760; $window.Height = 270; Update-CompactLayout
+    if ($compactSummaryPanel.Visibility -ne [Windows.Visibility]::Collapsed) {
+        throw "Full compact layout self-test failed"
+    }
+    $moduleBeforeMove = $script:moduleOrder[0]
+    Move-ModuleToSlot $moduleBeforeMove 2
+    Update-CompactLayout
+    if ($script:moduleOrder[2] -ne $moduleBeforeMove) { throw "Module reorder self-test failed" }
+    Write-Output ("SELFTEST_OK minimal={0} order={1}" -f $script:minimalModule, ($script:moduleOrder -join ','))
+    $window.Close()
+    return
+}
 $window.ShowDialog() | Out-Null
