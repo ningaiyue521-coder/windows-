@@ -21,7 +21,7 @@ A lightweight Windows desktop widget that combines a workday countdown, intraday
 
 ### Run the executable
 
-Download the latest `工作时间悬浮闹钟-综合优化版.exe` (Workday Floating Clock, optimized edition) from GitHub Releases and double-click it.
+Download the latest Windows executable (`.exe`) from [GitHub Releases](https://github.com/ningaiyue521-coder/windows-/releases) and double-click it.
 
 The executable is not commercially code-signed, so Windows SmartScreen may display a warning. Download from this repository's Releases, or inspect the source and build it yourself.
 
@@ -61,13 +61,13 @@ Install [PS2EXE](https://www.powershellgallery.com/packages/ps2exe), then run:
 ```powershell
 Invoke-PS2EXE `
   -inputFile .\workday-floating-clock.ps1 `
-  -outputFile .\工作时间悬浮闹钟-综合优化版.exe `
+  -outputFile .\WorkdayFloatingClock.exe `
   -noConsole -STA -DPIAware `
   -title 'Workday Floating Clock' `
   -description 'A floating workday countdown, ChiNext quote and lyrics widget'
 ```
 
-The output filename above matches the existing release filename; its English meaning is explained in the download instructions.
+This command creates `WorkdayFloatingClock.exe` in the current directory.
 
 ## Project files
 
